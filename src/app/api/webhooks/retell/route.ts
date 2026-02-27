@@ -67,16 +67,29 @@ async function handleCallEnded(
 ) {
   const retellCallId = callData.call_id as string;
 
+  // Determine final call status from disconnection reason
+  const disconnectionReason = callData.disconnection_reason as string | null;
+  let finalStatus: "completed" | "error" | "voicemail" = "completed";
+  if (disconnectionReason === "voicemail_reached") {
+    finalStatus = "voicemail";
+  } else if (
+    disconnectionReason === "dial_failed" ||
+    disconnectionReason === "call_failed" ||
+    disconnectionReason === "error"
+  ) {
+    finalStatus = "error";
+  }
+
   // Update call record
   const { data: call } = await supabase
     .from("calls")
     .update({
-      status: "completed",
+      status: finalStatus,
       ended_at: new Date().toISOString(),
       duration_ms: callData.duration_ms as number || null,
       transcript: callData.transcript as unknown || null,
       recording_url: callData.recording_url as string || null,
-      disconnection_reason: callData.disconnection_reason as string || null,
+      disconnection_reason: disconnectionReason,
     })
     .eq("retell_call_id", retellCallId)
     .select("*, restaurants(*)")

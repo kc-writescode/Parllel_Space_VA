@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/client";
 import { useRestaurant } from "@/hooks/use-restaurant";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import {
   Table,
   TableBody,
@@ -27,29 +28,50 @@ const statusIcons: Record<string, React.ReactNode> = {
 };
 
 export default function CallsPage() {
+  const PAGE_SIZE = 25;
+
   const { restaurant } = useRestaurant();
   const supabase = createClient();
   const [calls, setCalls] = useState<Call[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(false);
+  const [page, setPage] = useState(0);
   const [selectedCall, setSelectedCall] = useState<Call | null>(null);
 
-  const fetchCalls = useCallback(async () => {
+  const fetchCalls = useCallback(async (pageIndex: number) => {
     if (!restaurant) return;
+
+    if (pageIndex === 0) setLoading(true);
+    else setLoadingMore(true);
+
+    const from = pageIndex * PAGE_SIZE;
+    const to = from + PAGE_SIZE - 1;
 
     const { data } = await supabase
       .from("calls")
       .select("*")
       .eq("restaurant_id", restaurant.id)
       .order("created_at", { ascending: false })
-      .limit(100);
+      .range(from, to);
 
-    setCalls(data || []);
+    const fetched = data || [];
+    setCalls((prev) => (pageIndex === 0 ? fetched : [...prev, ...fetched]));
+    setHasMore(fetched.length === PAGE_SIZE);
     setLoading(false);
+    setLoadingMore(false);
   }, [restaurant, supabase]);
 
   useEffect(() => {
-    fetchCalls();
+    setPage(0);
+    fetchCalls(0);
   }, [fetchCalls]);
+
+  const loadMore = () => {
+    const next = page + 1;
+    setPage(next);
+    fetchCalls(next);
+  };
 
   if (loading) {
     return <div className="flex items-center justify-center h-64"><p className="text-gray-500">Loading calls...</p></div>;
@@ -123,6 +145,13 @@ export default function CallsPage() {
               </Table>
             </CardContent>
           </Card>
+          {hasMore && (
+            <div className="mt-3 flex justify-center">
+              <Button variant="outline" size="sm" onClick={loadMore} disabled={loadingMore}>
+                {loadingMore ? "Loading..." : "Load more"}
+              </Button>
+            </div>
+          )}
         </div>
 
         {/* Transcript Panel */}

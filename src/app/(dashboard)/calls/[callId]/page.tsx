@@ -250,14 +250,14 @@ export default function CallDetailPage() {
           </Card>
 
           {/* Call Analysis */}
-          {call.analysis && (
+          {call.call_analysis && (
             <Card>
               <CardHeader>
                 <CardTitle className="text-base">AI Analysis</CardTitle>
               </CardHeader>
               <CardContent>
                 <p className="text-sm text-gray-700 whitespace-pre-wrap">
-                  {typeof call.analysis === "string" ? call.analysis : JSON.stringify(call.analysis, null, 2)}
+                  {typeof call.call_analysis === "string" ? call.call_analysis : JSON.stringify(call.call_analysis, null, 2)}
                 </p>
               </CardContent>
             </Card>
