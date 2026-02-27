@@ -260,6 +260,30 @@ export default function MenuItemDetailPage() {
       }
 
       toast.success(isNew ? "Menu item created" : "Menu item updated");
+
+      // Sync updated menu to Retell agent in background (fire-and-forget)
+      if (restaurant.retell_llm_id) {
+        void (async () => {
+          try {
+            const { data: provisionData } = await supabase.rpc(
+              "get_restaurant_for_provisioning",
+              { p_restaurant_id: restaurant.id }
+            );
+            if (!provisionData) return;
+            await fetch("/api/restaurants/sync-agent", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                restaurant: { ...provisionData.restaurant, retell_llm_id: restaurant.retell_llm_id },
+                menu: provisionData.menu || [],
+              }),
+            });
+          } catch {
+            // best-effort
+          }
+        })();
+      }
+
       router.push("/menu");
     } catch (err) {
       toast.error("Failed to save menu item");

@@ -54,21 +54,43 @@ export async function POST(req: NextRequest) {
     // Create Retell agent + LLM (external API — not Supabase, no timeout issue)
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
     const tools = getOrderingTools(appUrl);
-    const { agentId, llmId } = await createRestaurantAgent(
-      restaurant.name,
-      systemPrompt,
-      tools
-    );
+
+    let agentId: string | null = null;
+    let llmId: string | null = null;
+
+    try {
+      const result = await createRestaurantAgent(restaurant.name, systemPrompt, tools);
+      agentId = result.agentId;
+      llmId = result.llmId;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Failed to create AI agent";
+      console.error("Agent creation error:", error);
+      return NextResponse.json({ error: `Agent creation failed: ${message}` }, { status: 500 });
+    }
 
     // Provision phone number via Retell
-    const { phoneNumber, phoneNumberId } = await provisionPhoneNumber(agentId);
-
-    return NextResponse.json({
-      agent_id: agentId,
-      llm_id: llmId,
-      phone_number: phoneNumber,
-      phone_number_id: phoneNumberId,
-    });
+    try {
+      const { phoneNumber, phoneNumberId } = await provisionPhoneNumber(agentId);
+      return NextResponse.json({
+        agent_id: agentId,
+        llm_id: llmId,
+        phone_number: phoneNumber,
+        phone_number_id: phoneNumberId,
+      });
+    } catch (error) {
+      // Clean up the agent+LLM we just created so retries start fresh
+      try {
+        const { getRetellClient } = await import("@/lib/retell/client");
+        const retell = getRetellClient();
+        await retell.agent.delete(agentId);
+        if (llmId) await retell.llm.delete(llmId);
+      } catch {
+        // best-effort cleanup
+      }
+      const message = error instanceof Error ? error.message : "Failed to provision phone number";
+      console.error("Phone provisioning error:", error);
+      return NextResponse.json({ error: `Phone provisioning failed: ${message}` }, { status: 500 });
+    }
   } catch (error) {
     console.error("Provisioning error:", error);
     const message =

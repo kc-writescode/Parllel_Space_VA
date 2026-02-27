@@ -204,14 +204,24 @@ export default function MenuPage() {
   async function syncRetellAgent() {
     if (!restaurant?.retell_llm_id) return;
     try {
-      // Trigger menu sync to Retell
-      await fetch("/api/restaurants/provision", {
+      // Fetch latest menu via RPC (avoids server-side DB timeout)
+      const { data: provisionData } = await supabase.rpc(
+        "get_restaurant_for_provisioning",
+        { p_restaurant_id: restaurant.id }
+      );
+      if (!provisionData) return;
+
+      // Fire-and-forget — non-blocking, only external Retell API call
+      fetch("/api/restaurants/sync-agent", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ restaurant_id: restaurant.id, sync_only: true }),
-      });
+        body: JSON.stringify({
+          restaurant: { ...provisionData.restaurant, retell_llm_id: restaurant.retell_llm_id },
+          menu: provisionData.menu || [],
+        }),
+      }).catch(() => {/* best-effort */});
     } catch {
-      // Non-critical, agent will be updated on next provision
+      // Non-critical
     }
   }
 

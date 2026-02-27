@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { useRestaurant } from "@/hooks/use-restaurant";
@@ -70,6 +70,18 @@ export default function OnboardingPage() {
   const [deliveryFee, setDeliveryFee] = useState("3.99");
   const [deliveryRadius, setDeliveryRadius] = useState("5");
   const [taxRate, setTaxRate] = useState("8.25");
+
+  // Pre-populate form fields from saved restaurant data
+  useEffect(() => {
+    if (!restaurant) return;
+    if (restaurant.address) setAddress(restaurant.address);
+    if (restaurant.phone) setPhone(restaurant.phone);
+    if (restaurant.website_url) setWebsiteUrl(restaurant.website_url);
+    setDeliveryEnabled(restaurant.delivery_enabled ?? false);
+    if (restaurant.delivery_fee) setDeliveryFee(String(restaurant.delivery_fee));
+    if (restaurant.delivery_radius_miles) setDeliveryRadius(String(restaurant.delivery_radius_miles));
+    if (restaurant.tax_rate) setTaxRate(String((restaurant.tax_rate * 100).toFixed(2)));
+  }, [restaurant]);
 
   // Step 2: Menu
   const [menuImported, setMenuImported] = useState(false);
