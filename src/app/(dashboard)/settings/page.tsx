@@ -209,6 +209,38 @@ export default function SettingsPage() {
       toast.error("Failed to save settings");
     } else {
       toast.success("Settings saved");
+      syncRetellAgent();
+    }
+  }
+
+  async function syncRetellAgent() {
+    if (!restaurant?.retell_llm_id) return;
+    try {
+      const { data: provisionData } = await supabase.rpc(
+        "get_restaurant_for_provisioning",
+        { p_restaurant_id: restaurant.id }
+      );
+      if (!provisionData) return;
+
+      fetch("/api/restaurants/sync-agent", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          restaurant: {
+            ...provisionData.restaurant,
+            retell_llm_id: restaurant.retell_llm_id,
+            pickup_wait_minutes: parseInt(pickupWait) || 15,
+            delivery_wait_minutes: parseInt(deliveryWait) || 35,
+          },
+          menu: provisionData.menu || [],
+        }),
+      }).then(() => {
+        toast.success("AI agent prompt synced");
+      }).catch(() => {
+        toast.error("Failed to sync AI agent — try again from settings");
+      });
+    } catch {
+      // Non-critical
     }
   }
 
