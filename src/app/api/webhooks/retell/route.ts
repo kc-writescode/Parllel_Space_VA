@@ -1,9 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import Retell from "retell-sdk";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { createPaymentLink } from "@/lib/stripe/client";
-import { sendPaymentLinkSMS } from "@/lib/sms/twilio";
-import { formatCurrency } from "@/lib/utils/formatters";
 
 export async function POST(req: NextRequest) {
   const body = await req.json();
@@ -209,36 +206,7 @@ async function handleCallEnded(
     .update({ order_id: newOrder.id, customer_id: customerId })
     .eq("id", call.id);
 
-  // Create payment link and send SMS
-  if (callerPhone && total > 0) {
-    try {
-      const { url, sessionId } = await createPaymentLink({
-        orderId: newOrder.id,
-        restaurantName: restaurant.name,
-        total,
-      });
-
-      await supabase
-        .from("orders")
-        .update({
-          stripe_payment_link_url: url,
-          stripe_payment_link_id: sessionId,
-          payment_status: "link_sent",
-        })
-        .eq("id", newOrder.id);
-
-      await sendPaymentLinkSMS({
-        to: callerPhone,
-        customerName: order.customerName || "there",
-        orderNumber: newOrder.order_number,
-        restaurantName: restaurant.name,
-        total: formatCurrency(total),
-        paymentUrl: url,
-      });
-    } catch (err) {
-      console.error("Failed to send payment link:", err);
-    }
-  }
+  // Payment is collected at pickup/delivery — no payment link needed
 }
 
 async function handleCallAnalyzed(

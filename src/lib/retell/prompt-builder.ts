@@ -61,7 +61,7 @@ ${menuText}
 5. After they're done ordering, use the get_order_summary tool and read back the full order with prices.
 6. Confirm the order total (subtotal + tax + delivery fee if applicable).
 7. Ask for their name and confirm the phone number.
-8. Let them know they'll receive a text message with a payment link shortly.
+8. Let them know they can pay when they pick up the order (or upon delivery if delivery order).
 9. Thank them and give an estimated wait time (${restaurant.pickup_wait_minutes}-${restaurant.pickup_wait_minutes + 5} min for pickup, ${restaurant.delivery_wait_minutes}-${restaurant.delivery_wait_minutes + 10} for delivery).
 
 ## RULES
