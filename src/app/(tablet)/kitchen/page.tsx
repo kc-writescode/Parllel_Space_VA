@@ -1,12 +1,12 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRealtimeOrders } from "@/hooks/use-realtime-orders";
 import { useAudioAlert } from "@/hooks/use-audio-alert";
 import { useRestaurant } from "@/hooks/use-restaurant";
 import { createClient } from "@/lib/supabase/client";
 import { formatCurrency, formatTimeAgo } from "@/lib/utils/formatters";
-import { MapPin, ShoppingBag, Wifi } from "lucide-react";
+import { MapPin, ShoppingBag, Wifi, Printer } from "lucide-react";
 import type { Database } from "@/types/database";
 
 type Order = Database["public"]["Tables"]["orders"]["Row"] & {
@@ -20,6 +20,12 @@ export default function KitchenPage() {
   const { playAlert } = useAudioAlert();
   const supabase = createClient();
   const prevCountRef = useRef(0);
+  const [printOrder, setPrintOrder] = useState<Order | null>(null);
+
+  function handlePrint(order: Order) {
+    setPrintOrder(order);
+    setTimeout(() => window.print(), 100);
+  }
 
   // Play alert on new orders
   useEffect(() => {
@@ -73,6 +79,7 @@ export default function KitchenPage() {
               actionLabel="Accept"
               actionColor="bg-green-600 hover:bg-green-700"
               onAction={() => updateStatus(order.id, "preparing")}
+              onPrint={() => handlePrint(order)}
             />
           ))}
         </Column>
@@ -91,6 +98,7 @@ export default function KitchenPage() {
               actionLabel="Mark Ready"
               actionColor="bg-blue-600 hover:bg-blue-700"
               onAction={() => updateStatus(order.id, "ready")}
+              onPrint={() => handlePrint(order)}
             />
           ))}
         </Column>
@@ -109,10 +117,67 @@ export default function KitchenPage() {
               actionLabel="Complete"
               actionColor="bg-gray-600 hover:bg-gray-700"
               onAction={() => updateStatus(order.id, "completed")}
+              onPrint={() => handlePrint(order)}
             />
           ))}
         </Column>
       </div>
+
+      {/* Hidden print area */}
+      {printOrder && (
+        <div className="print-area">
+          <div style={{ padding: "8px", fontFamily: "monospace", fontSize: "12px", color: "#000" }}>
+            <h2 style={{ textAlign: "center", fontSize: "16px", margin: "0 0 4px" }}>
+              Order #{printOrder.order_number}
+            </h2>
+            <p style={{ textAlign: "center", fontSize: "10px", color: "#666", margin: "0 0 8px" }}>
+              {new Date(printOrder.created_at).toLocaleString()}
+            </p>
+            <p style={{ textAlign: "center", fontWeight: "bold", margin: "0 0 8px" }}>
+              {printOrder.order_type.toUpperCase()}
+            </p>
+            {printOrder.delivery_address && (
+              <p style={{ fontSize: "11px", margin: "0 0 8px" }}>
+                Deliver to: {printOrder.delivery_address}
+              </p>
+            )}
+            <hr style={{ border: "none", borderTop: "1px dashed #000", margin: "8px 0" }} />
+            {printOrder.order_items?.map((item) => (
+              <div key={item.id} style={{ marginBottom: "6px" }}>
+                <div style={{ display: "flex", justifyContent: "space-between" }}>
+                  <span>{item.quantity}× {item.name}</span>
+                  <span>{formatCurrency(item.item_total)}</span>
+                </div>
+                {item.modifiers && Array.isArray(item.modifiers) &&
+                  (item.modifiers as { option: string }[]).map((mod, mi) => (
+                    <div key={mi} style={{ paddingLeft: "12px", fontSize: "10px", color: "#555" }}>
+                      {mod.option}
+                    </div>
+                  ))}
+                {item.special_instructions && (
+                  <div style={{ paddingLeft: "12px", fontSize: "10px", fontStyle: "italic", color: "#888" }}>
+                    Note: {item.special_instructions}
+                  </div>
+                )}
+              </div>
+            ))}
+            <hr style={{ border: "none", borderTop: "1px dashed #000", margin: "8px 0" }} />
+            <div style={{ display: "flex", justifyContent: "space-between", fontWeight: "bold", fontSize: "14px" }}>
+              <span>TOTAL</span>
+              <span>{formatCurrency(printOrder.total)}</span>
+            </div>
+            <hr style={{ border: "none", borderTop: "1px dashed #000", margin: "8px 0" }} />
+            {printOrder.customer && (
+              <div style={{ fontSize: "11px" }}>
+                <p style={{ margin: 0 }}>{printOrder.customer.name || "Guest"}</p>
+              </div>
+            )}
+            <p style={{ textAlign: "center", fontSize: "12px", marginTop: "12px", fontWeight: "bold" }}>
+              Thank you!
+            </p>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -148,26 +213,37 @@ function KitchenOrderCard({
   actionLabel,
   actionColor,
   onAction,
+  onPrint,
 }: {
   order: Order;
   actionLabel: string;
   actionColor: string;
   onAction: () => void;
+  onPrint: () => void;
 }) {
   return (
     <div className="bg-gray-900 rounded-lg border border-gray-800 p-4">
       {/* Order Header */}
       <div className="flex items-center justify-between mb-3">
         <span className="text-4xl font-bold">#{order.order_number}</span>
-        <div className="text-right">
-          <div className="flex items-center gap-1 text-sm">
-            {order.order_type === "delivery" ? (
-              <><MapPin className="h-4 w-4 text-blue-400" /> <span className="text-blue-400">Delivery</span></>
-            ) : (
-              <><ShoppingBag className="h-4 w-4 text-green-400" /> <span className="text-green-400">Pickup</span></>
-            )}
+        <div className="flex items-center gap-2">
+          <button
+            onClick={onPrint}
+            className="p-1.5 rounded-md text-gray-400 hover:text-white hover:bg-gray-800 transition-colors"
+            title="Print ticket"
+          >
+            <Printer className="h-4 w-4" />
+          </button>
+          <div className="text-right">
+            <div className="flex items-center gap-1 text-sm">
+              {order.order_type === "delivery" ? (
+                <><MapPin className="h-4 w-4 text-blue-400" /> <span className="text-blue-400">Delivery</span></>
+              ) : (
+                <><ShoppingBag className="h-4 w-4 text-green-400" /> <span className="text-green-400">Pickup</span></>
+              )}
+            </div>
+            <span className="text-xs text-gray-500">{formatTimeAgo(order.created_at)}</span>
           </div>
-          <span className="text-xs text-gray-500">{formatTimeAgo(order.created_at)}</span>
         </div>
       </div>
 

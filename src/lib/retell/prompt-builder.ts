@@ -27,6 +27,8 @@ interface RestaurantInfo {
   delivery_fee: number;
   delivery_radius_miles: number | null;
   tax_rate: number;
+  pickup_wait_minutes: number;
+  delivery_wait_minutes: number;
 }
 
 export function buildSystemPrompt(
@@ -60,7 +62,7 @@ ${menuText}
 6. Confirm the order total (subtotal + tax + delivery fee if applicable).
 7. Ask for their name and confirm the phone number.
 8. Let them know they'll receive a text message with a payment link shortly.
-9. Thank them and give an estimated wait time (15-20 min for pickup, 30-45 for delivery).
+9. Thank them and give an estimated wait time (${restaurant.pickup_wait_minutes}-${restaurant.pickup_wait_minutes + 5} min for pickup, ${restaurant.delivery_wait_minutes}-${restaurant.delivery_wait_minutes + 10} for delivery).
 
 ## RULES
 - Only offer items on the menu. If they ask for something unavailable, politely say so and suggest alternatives.

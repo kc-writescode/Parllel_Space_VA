@@ -1,12 +1,13 @@
 "use client";
 
+import Link from "next/link";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { OrderStatusBadge, PaymentStatusBadge } from "./order-status-badge";
 import { formatCurrency, formatTimeAgo } from "@/lib/utils/formatters";
 import { createClient } from "@/lib/supabase/client";
-import { MapPin, ShoppingBag } from "lucide-react";
+import { MapPin, ShoppingBag, ExternalLink } from "lucide-react";
 import type { Database } from "@/types/database";
 
 type Order = Database["public"]["Tables"]["orders"]["Row"] & {
@@ -121,6 +122,11 @@ export function OrderCard({ order, onSelect }: OrderCardProps) {
               Cancel
             </Button>
           )}
+          <Link href={`/orders/${order.id}`} onClick={(e) => e.stopPropagation()}>
+            <Button size="sm" variant="outline">
+              <ExternalLink className="h-3.5 w-3.5" />
+            </Button>
+          </Link>
         </div>
       </CardContent>
     </Card>

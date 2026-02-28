@@ -33,6 +33,8 @@ export interface Database {
           stripe_account_id: string | null;
           is_active: boolean;
           onboarding_completed: boolean;
+          pickup_wait_minutes: number;
+          delivery_wait_minutes: number;
           created_at: string;
           updated_at: string;
         };
@@ -56,6 +58,8 @@ export interface Database {
           stripe_account_id?: string | null;
           is_active?: boolean;
           onboarding_completed?: boolean;
+          pickup_wait_minutes?: number;
+          delivery_wait_minutes?: number;
         };
         Update: {
           id?: string;
@@ -77,6 +81,8 @@ export interface Database {
           stripe_account_id?: string | null;
           is_active?: boolean;
           onboarding_completed?: boolean;
+          pickup_wait_minutes?: number;
+          delivery_wait_minutes?: number;
         };
       };
       restaurant_members: {

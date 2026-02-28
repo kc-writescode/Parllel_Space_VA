@@ -124,3 +124,33 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* ── Print styles for thermal receipt ── */
+@media print {
+  /* Hide everything by default */
+  body * {
+    visibility: hidden !important;
+  }
+
+  /* Show only the print area */
+  .print-area,
+  .print-area * {
+    visibility: visible !important;
+  }
+
+  .print-area {
+    position: absolute !important;
+    left: 0 !important;
+    top: 0 !important;
+    width: 80mm !important;
+    font-size: 12px !important;
+    color: #000 !important;
+    background: #fff !important;
+  }
+
+  /* Remove decorative elements */
+  @page {
+    margin: 4mm;
+    size: 80mm auto;
+  }
+}

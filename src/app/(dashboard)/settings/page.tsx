@@ -13,7 +13,7 @@ import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import { formatPhone } from "@/lib/utils/formatters";
 import { toast } from "sonner";
-import { Phone, Store, Truck, Users, Plus, Trash2, Mail, BarChart2, Activity, TrendingUp, TrendingDown } from "lucide-react";
+import { Phone, Store, Truck, Users, Plus, Trash2, Mail, BarChart2, Activity, TrendingUp, TrendingDown, Clock } from "lucide-react";
 import { startOfMonth, subMonths, format } from "date-fns";
 
 const DAYS = [
@@ -61,6 +61,8 @@ export default function SettingsPage() {
   const [businessHours, setBusinessHours] = useState<
     Record<string, { open: string; close: string; closed?: boolean }>
   >({});
+  const [pickupWait, setPickupWait] = useState("15");
+  const [deliveryWait, setDeliveryWait] = useState("35");
 
   const fetchMembers = useCallback(async () => {
     if (!restaurant) return;
@@ -130,6 +132,8 @@ export default function SettingsPage() {
     setDeliveryRadius(restaurant.delivery_radius_miles?.toString() || "");
     setTaxRate(((restaurant.tax_rate || 0) * 100).toFixed(2));
     setBusinessHours((restaurant.business_hours || {}) as Record<string, { open: string; close: string }>);
+    setPickupWait((restaurant.pickup_wait_minutes ?? 15).toString());
+    setDeliveryWait((restaurant.delivery_wait_minutes ?? 35).toString());
   }, [restaurant]);
 
   async function inviteMember() {
@@ -194,6 +198,8 @@ export default function SettingsPage() {
         delivery_radius_miles: parseFloat(deliveryRadius) || null,
         tax_rate: parseFloat(taxRate) / 100 || 0,
         business_hours: businessHours,
+        pickup_wait_minutes: parseInt(pickupWait) || 15,
+        delivery_wait_minutes: parseInt(deliveryWait) || 35,
       })
       .eq("id", restaurant.id);
 
@@ -311,6 +317,49 @@ export default function SettingsPage() {
               </div>
             </div>
           )}
+        </CardContent>
+      </Card>
+
+      {/* Wait Time Settings */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Clock className="h-5 w-5" />
+            Wait Time Settings
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <p className="text-sm text-gray-500">
+            Set the default wait times that the AI agent quotes to callers. These are base estimates.
+          </p>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label>Pickup Wait (minutes)</Label>
+              <Input
+                type="number"
+                min="5"
+                max="120"
+                value={pickupWait}
+                onChange={(e) => setPickupWait(e.target.value)}
+              />
+              <p className="text-xs text-gray-400">
+                AI will quote {pickupWait}-{parseInt(pickupWait) + 5} min
+              </p>
+            </div>
+            <div className="space-y-2">
+              <Label>Delivery Wait (minutes)</Label>
+              <Input
+                type="number"
+                min="10"
+                max="180"
+                value={deliveryWait}
+                onChange={(e) => setDeliveryWait(e.target.value)}
+              />
+              <p className="text-xs text-gray-400">
+                AI will quote {deliveryWait}-{parseInt(deliveryWait) + 10} min
+              </p>
+            </div>
+          </div>
         </CardContent>
       </Card>
 

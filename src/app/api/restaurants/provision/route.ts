@@ -47,6 +47,8 @@ export async function POST(req: NextRequest) {
         delivery_fee: restaurant.delivery_fee,
         delivery_radius_miles: restaurant.delivery_radius_miles,
         tax_rate: restaurant.tax_rate,
+        pickup_wait_minutes: restaurant.pickup_wait_minutes ?? 15,
+        delivery_wait_minutes: restaurant.delivery_wait_minutes ?? 35,
       },
       menu || []
     );
