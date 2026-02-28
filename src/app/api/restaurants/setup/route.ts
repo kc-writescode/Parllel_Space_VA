@@ -161,6 +161,19 @@ export async function PATCH(request: NextRequest) {
       );
     }
 
+    void (async () => {
+      try {
+        await admin.from("audit_logs").insert({
+          restaurant_id: restaurant_id,
+          user_id: user.id,
+          action: "settings.updated",
+          entity_type: "restaurant",
+          entity_id: restaurant_id,
+          metadata: { fields: Object.keys(updates) },
+        });
+      } catch (_) { /* non-blocking */ }
+    })();
+
     return NextResponse.json({ restaurant });
   } catch (error) {
     console.error("Restaurant update error:", error);

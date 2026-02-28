@@ -13,8 +13,9 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { Input } from "@/components/ui/input";
 import { formatDuration, formatPhone, formatCurrency } from "@/lib/utils/formatters";
-import { Phone, PhoneOff, AlertCircle, ExternalLink, Volume2 } from "lucide-react";
+import { Phone, PhoneOff, AlertCircle, ExternalLink, Volume2, Search } from "lucide-react";
 
 interface OrderSummary {
   id: string;
@@ -52,6 +53,7 @@ export default function CallsPage() {
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [selectedCall, setSelectedCall] = useState<CallRecord | null>(null);
+  const [search, setSearch] = useState("");
 
   const fetchCalls = useCallback(async (cursor?: string) => {
     if (cursor) setLoadingMore(true);
@@ -71,6 +73,15 @@ export default function CallsPage() {
     fetchCalls();
   }, [fetchCalls]);
 
+  const q = search.trim().toLowerCase();
+  const visibleCalls = calls.filter((call) => {
+    if (!q) return true;
+    if (call.caller_phone?.toLowerCase().includes(q)) return true;
+    if (call.status.toLowerCase().includes(q)) return true;
+    if (call.order && String(call.order.order_number).includes(q)) return true;
+    return false;
+  });
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -88,6 +99,18 @@ export default function CallsPage() {
         <div className="lg:col-span-2 space-y-3">
           <Card>
             <CardContent className="p-0">
+              {/* Search bar */}
+              <div className="p-3 border-b">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
+                  <Input
+                    placeholder="Search by phone, status, or order #…"
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    className="pl-9"
+                  />
+                </div>
+              </div>
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -100,14 +123,14 @@ export default function CallsPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {calls.length === 0 ? (
+                  {visibleCalls.length === 0 ? (
                     <TableRow>
                       <TableCell colSpan={6} className="text-center py-8 text-gray-500">
-                        No calls yet. They&apos;ll appear here when customers call.
+                        {q ? `No calls matching "${search}"` : "No calls yet. They'll appear here when customers call."}
                       </TableCell>
                     </TableRow>
                   ) : (
-                    calls.map((call) => (
+                    visibleCalls.map((call) => (
                       <TableRow
                         key={call.retell_call_id}
                         className={`cursor-pointer hover:bg-gray-50 ${selectedCall?.retell_call_id === call.retell_call_id ? "bg-blue-50" : ""}`}

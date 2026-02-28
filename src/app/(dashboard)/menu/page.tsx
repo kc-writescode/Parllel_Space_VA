@@ -11,7 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Input } from "@/components/ui/input";
 import { formatCurrency } from "@/lib/utils/formatters";
-import { Plus, Pencil, Trash2, FolderPlus } from "lucide-react";
+import { Plus, Pencil, Trash2, FolderPlus, Search } from "lucide-react";
 import { toast } from "sonner";
 import type { ExtractedMenu } from "@/lib/scraper/ai-extractor";
 import type { Database } from "@/types/database";
@@ -30,6 +30,7 @@ export default function MenuPage() {
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
   const [newCategoryName, setNewCategoryName] = useState("");
   const [showCategoryInput, setShowCategoryInput] = useState(false);
+  const [search, setSearch] = useState("");
 
   const fetchMenu = useCallback(async () => {
     if (!restaurant) return;
@@ -301,6 +302,17 @@ export default function MenuPage() {
 
       <ScrapeForm onMenuExtracted={handleMenuExtracted} />
 
+      {/* Search */}
+      <div className="relative max-w-sm">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
+        <Input
+          placeholder="Search menu items…"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="pl-9"
+        />
+      </div>
+
       {/* Add Category */}
       <div className="flex items-center gap-3">
         {showCategoryInput ? (
@@ -332,7 +344,10 @@ export default function MenuPage() {
         </Card>
       ) : (
         categories.map((cat) => {
-          const catItems = items.filter((i) => i.category_id === cat.id);
+            const q = search.trim().toLowerCase();
+          const catItems = items
+            .filter((i) => i.category_id === cat.id)
+            .filter((i) => !q || i.name.toLowerCase().includes(q) || (i.description ?? "").toLowerCase().includes(q));
           return (
             <Card key={cat.id}>
               <CardHeader className="flex flex-row items-center justify-between pb-3">

@@ -13,6 +13,7 @@ import {
   LogOut,
   PhoneCall,
   LayoutDashboard,
+  X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -26,7 +27,7 @@ const navItems = [
   { href: "/settings", label: "Settings", icon: Settings },
 ];
 
-export function Sidebar() {
+export function Sidebar({ onClose }: { onClose?: () => void }) {
   const pathname = usePathname();
   const router = useRouter();
   const { restaurant } = useRestaurant();
@@ -40,11 +41,26 @@ export function Sidebar() {
 
   return (
     <aside className="flex h-screen w-64 flex-col border-r bg-white">
-      {/* Logo */}
-      <Link href="/dashboard" className="flex items-center gap-2 border-b px-6 py-4 hover:bg-gray-50 transition-colors">
-        <PhoneCall className="h-6 w-6 text-blue-600" />
-        <span className="text-lg font-bold">Parallel Space</span>
-      </Link>
+      {/* Logo + mobile close button */}
+      <div className="flex items-center justify-between border-b px-4 py-4">
+        <Link
+          href="/dashboard"
+          onClick={onClose}
+          className="flex items-center gap-2 hover:opacity-80 transition-opacity"
+        >
+          <PhoneCall className="h-6 w-6 text-blue-600" />
+          <span className="text-lg font-bold">Parallel Space</span>
+        </Link>
+        {onClose && (
+          <button
+            onClick={onClose}
+            className="rounded-md p-1 text-gray-500 hover:bg-gray-100 md:hidden"
+            aria-label="Close menu"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        )}
+      </div>
 
       {/* Restaurant Name */}
       {restaurant && (
@@ -68,6 +84,7 @@ export function Sidebar() {
             <Link
               key={item.href}
               href={item.href}
+              onClick={onClose}
               className={cn(
                 "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
                 isActive

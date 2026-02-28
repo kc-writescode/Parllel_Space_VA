@@ -13,7 +13,8 @@ import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import { formatPhone } from "@/lib/utils/formatters";
 import { toast } from "sonner";
-import { Phone, Store, Truck, Users, Plus, Trash2, Mail } from "lucide-react";
+import { Phone, Store, Truck, Users, Plus, Trash2, Mail, BarChart2, Activity, TrendingUp, TrendingDown } from "lucide-react";
+import { startOfMonth, subMonths, format } from "date-fns";
 
 const DAYS = [
   { key: "mon", label: "Monday" },
@@ -33,6 +34,20 @@ export default function SettingsPage() {
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteRole, setInviteRole] = useState("staff");
   const [inviting, setInviting] = useState(false);
+
+  const [usage, setUsage] = useState<{
+    callsThisMonth: number;
+    callsLastMonth: number;
+    ordersThisMonth: number;
+    ordersLastMonth: number;
+  } | null>(null);
+  const [auditLogs, setAuditLogs] = useState<Array<{
+    id: string;
+    action: string;
+    entity_type: string | null;
+    entity_id: string | null;
+    created_at: string;
+  }>>([]);
 
   const [name, setName] = useState("");
   const [address, setAddress] = useState("");
@@ -57,9 +72,51 @@ export default function SettingsPage() {
     setMembers(data || []);
   }, [restaurant, supabase]);
 
+  const fetchUsage = useCallback(async () => {
+    if (!restaurant) return;
+    const now = new Date();
+    const thisMonthStart = startOfMonth(now).toISOString();
+    const lastMonthStart = startOfMonth(subMonths(now, 1)).toISOString();
+    const [callsThis, callsLast, ordersThis, ordersLast] = await Promise.all([
+      supabase.from("calls").select("id", { count: "exact", head: true })
+        .eq("restaurant_id", restaurant.id).gte("created_at", thisMonthStart),
+      supabase.from("calls").select("id", { count: "exact", head: true })
+        .eq("restaurant_id", restaurant.id).gte("created_at", lastMonthStart).lt("created_at", thisMonthStart),
+      supabase.from("orders").select("id", { count: "exact", head: true })
+        .eq("restaurant_id", restaurant.id).gte("created_at", thisMonthStart),
+      supabase.from("orders").select("id", { count: "exact", head: true })
+        .eq("restaurant_id", restaurant.id).gte("created_at", lastMonthStart).lt("created_at", thisMonthStart),
+    ]);
+    setUsage({
+      callsThisMonth: callsThis.count ?? 0,
+      callsLastMonth: callsLast.count ?? 0,
+      ordersThisMonth: ordersThis.count ?? 0,
+      ordersLastMonth: ordersLast.count ?? 0,
+    });
+  }, [restaurant, supabase]);
+
+  const fetchAuditLogs = useCallback(async () => {
+    if (!restaurant) return;
+    const { data } = await supabase
+      .from("audit_logs")
+      .select("id, action, entity_type, entity_id, created_at")
+      .eq("restaurant_id", restaurant.id)
+      .order("created_at", { ascending: false })
+      .limit(50);
+    setAuditLogs(data || []);
+  }, [restaurant, supabase]);
+
   useEffect(() => {
     fetchMembers();
   }, [fetchMembers]);
+
+  useEffect(() => {
+    fetchUsage();
+  }, [fetchUsage]);
+
+  useEffect(() => {
+    fetchAuditLogs();
+  }, [fetchAuditLogs]);
 
   useEffect(() => {
     if (!restaurant) return;
@@ -361,6 +418,77 @@ export default function SettingsPage() {
               Team members can view orders and manage the kitchen display. Managers can also edit menu and settings.
             </p>
           </div>
+        </CardContent>
+      </Card>
+
+      {/* Usage This Month */}
+      {usage && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <BarChart2 className="h-5 w-5" />
+              Usage This Month
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="rounded-lg border p-4">
+                <p className="text-sm text-gray-500">Calls</p>
+                <p className="text-3xl font-bold mt-1">{usage.callsThisMonth}</p>
+                <div className="flex items-center gap-1 mt-1 text-xs text-gray-400">
+                  {usage.callsThisMonth >= usage.callsLastMonth
+                    ? <TrendingUp className="h-3 w-3 text-green-500" />
+                    : <TrendingDown className="h-3 w-3 text-red-500" />}
+                  {usage.callsLastMonth} last month
+                </div>
+              </div>
+              <div className="rounded-lg border p-4">
+                <p className="text-sm text-gray-500">Orders</p>
+                <p className="text-3xl font-bold mt-1">{usage.ordersThisMonth}</p>
+                <div className="flex items-center gap-1 mt-1 text-xs text-gray-400">
+                  {usage.ordersThisMonth >= usage.ordersLastMonth
+                    ? <TrendingUp className="h-3 w-3 text-green-500" />
+                    : <TrendingDown className="h-3 w-3 text-red-500" />}
+                  {usage.ordersLastMonth} last month
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Recent Activity */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Activity className="h-5 w-5" />
+            Recent Activity
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {auditLogs.length === 0 ? (
+            <p className="text-sm text-gray-400 text-center py-6">No activity recorded yet.</p>
+          ) : (
+            <div className="divide-y">
+              {auditLogs.map((log) => (
+                <div key={log.id} className="py-2.5 flex items-start justify-between gap-4">
+                  <div>
+                    <p className="text-sm font-medium">
+                      {log.action.replace(/\./g, " · ").replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())}
+                    </p>
+                    {log.entity_type && (
+                      <p className="text-xs text-gray-400 mt-0.5">
+                        {log.entity_type}{log.entity_id ? ` · ${log.entity_id.slice(0, 8)}` : ""}
+                      </p>
+                    )}
+                  </div>
+                  <span className="text-xs text-gray-400 whitespace-nowrap">
+                    {format(new Date(log.created_at), "MMM d, h:mm a")}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
         </CardContent>
       </Card>
 

@@ -280,6 +280,19 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: "Failed to update order" }, { status: 500 });
     }
 
+    void (async () => {
+      try {
+        await admin.from("audit_logs").insert({
+          restaurant_id: member.restaurant_id,
+          user_id: user.id,
+          action: "order.status_changed",
+          entity_type: "order",
+          entity_id: order_id,
+          metadata: { status, payment_status },
+        });
+      } catch (_) { /* non-blocking */ }
+    })();
+
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error("Orders PATCH error:", error);
