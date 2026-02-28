@@ -222,7 +222,7 @@ export default function AnalyticsPage() {
                 <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
                 <XAxis dataKey="date" tick={{ fontSize: 11 }} tickLine={false} axisLine={false} />
                 <YAxis tickFormatter={(v) => `$${v}`} tick={{ fontSize: 11 }} tickLine={false} axisLine={false} width={48} />
-                <Tooltip formatter={(v: number) => [formatCurrency(v), "Revenue"]} />
+                <Tooltip formatter={(v) => [formatCurrency(Number(v)), "Revenue"]} />
                 <Area type="monotone" dataKey="revenue" stroke="#22c55e" strokeWidth={2} fill="url(#revenueGradient)" />
               </AreaChart>
             </ResponsiveContainer>
@@ -238,7 +238,7 @@ export default function AnalyticsPage() {
                 <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
                 <XAxis dataKey="date" tick={{ fontSize: 11 }} tickLine={false} axisLine={false} />
                 <YAxis allowDecimals={false} tick={{ fontSize: 11 }} tickLine={false} axisLine={false} width={32} />
-                <Tooltip formatter={(v: number) => [v, "Orders"]} />
+                <Tooltip formatter={(v) => [v, "Orders"]} />
                 <Bar dataKey="orders" fill="#3b82f6" radius={[3, 3, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
@@ -276,12 +276,12 @@ export default function AnalyticsPage() {
                 <PieChart>
                   <Pie data={pieData} cx="50%" cy="50%" innerRadius={50} outerRadius={75}
                     paddingAngle={3} dataKey="value"
-                    label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                    label={({ name, percent }) => `${name} ${((percent ?? 0) * 100).toFixed(0)}%`}
                     labelLine={false}>
                     <Cell fill="#3b82f6" />
                     <Cell fill="#22c55e" />
                   </Pie>
-                  <Tooltip formatter={(v: number, name: string) => [v, name]} />
+                  <Tooltip formatter={(v, name) => [v, name]} />
                   <Legend />
                 </PieChart>
               </ResponsiveContainer>
