@@ -95,7 +95,9 @@ async function handleCallEnded(
   if (!call) return;
 
   // Extract order from transcript tool calls
-  const order = extractOrderFromTranscript(callData.transcript as TranscriptEntry[]);
+  // Retell sends tool call data in `transcript_with_tool_calls`, not in `transcript`
+  const transcriptWithTools = callData.transcript_with_tool_calls as TranscriptEntry[] | undefined;
+  const order = extractOrderFromTranscript(transcriptWithTools || null);
   if (!order || !order.items.length) return;
 
   // Get restaurant details for pricing
@@ -224,9 +226,20 @@ async function handleCallAnalyzed(
 interface TranscriptEntry {
   role: string;
   content: string;
+  // Retell uses "tool_call_invocation" entries with this structure
+  tool_call_invocation?: {
+    tool_call_id: string;
+    name: string;
+    arguments: string; // JSON string
+  };
+  // Also handle array format for tool_calls
   tool_calls?: {
-    function_name: string;
-    arguments: Record<string, unknown>;
+    function_name?: string;
+    arguments?: Record<string, unknown>;
+    function?: {
+      name: string;
+      arguments: string;
+    };
   }[];
 }
 
@@ -254,48 +267,77 @@ function extractOrderFromTranscript(
   };
 
   for (const entry of transcript) {
+    // Handle Retell's tool_call_invocation format (individual entries)
+    if (entry.tool_call_invocation) {
+      const inv = entry.tool_call_invocation;
+      let args: Record<string, unknown> = {};
+      try {
+        args = typeof inv.arguments === "string" ? JSON.parse(inv.arguments) : inv.arguments;
+      } catch { /* ignore parse errors */ }
+      processToolCall(inv.name, args, order);
+      continue;
+    }
+
+    // Handle tool_calls array format
     if (!entry.tool_calls) continue;
-
     for (const toolCall of entry.tool_calls) {
-      const args = toolCall.arguments;
-
-      switch (toolCall.function_name) {
-        case "add_to_order":
-          order.items.push({
-            name: args.item_name as string,
-            quantity: (args.quantity as number) || 1,
-            modifiers: ((args.modifiers as { group: string; option: string; price?: number }[]) || []).map(
-              (m) => ({ group: m.group, option: m.option, price: m.price || 0 })
-            ),
-            specialInstructions: args.special_instructions as string | undefined,
-          });
-          break;
-
-        case "remove_from_order": {
-          const removeName = (args.item_name as string).toLowerCase();
-          order.items = order.items.filter(
-            (i) => i.name.toLowerCase() !== removeName
-          );
-          break;
-        }
-
-        case "set_order_type":
-          order.orderType = args.order_type as "pickup" | "delivery";
-          break;
-
-        case "set_delivery_address":
-          order.deliveryAddress = args.address as string;
-          break;
-
-        case "set_customer_info":
-          if (args.name) order.customerName = args.name as string;
-          if (args.phone) order.customerPhone = args.phone as string;
-          break;
+      // Support both flat and nested formats
+      const funcName = toolCall.function_name || toolCall.function?.name || "";
+      let args: Record<string, unknown> = {};
+      if (toolCall.arguments && typeof toolCall.arguments === "object") {
+        args = toolCall.arguments;
+      } else if (toolCall.function?.arguments) {
+        try {
+          args = typeof toolCall.function.arguments === "string"
+            ? JSON.parse(toolCall.function.arguments)
+            : toolCall.function.arguments;
+        } catch { /* ignore parse errors */ }
       }
+      processToolCall(funcName, args, order);
     }
   }
 
   return order.items.length > 0 ? order : null;
+}
+
+function processToolCall(
+  funcName: string,
+  args: Record<string, unknown>,
+  order: ExtractedOrder
+) {
+  switch (funcName) {
+    case "add_to_order":
+      order.items.push({
+        name: args.item_name as string,
+        quantity: (args.quantity as number) || 1,
+        modifiers: ((args.modifiers as { group: string; option: string; price?: number }[]) || []).map(
+          (m) => ({ group: m.group, option: m.option, price: m.price || 0 })
+        ),
+        specialInstructions: args.special_instructions as string | undefined,
+      });
+      break;
+
+    case "remove_from_order": {
+      const removeName = (args.item_name as string).toLowerCase();
+      order.items = order.items.filter(
+        (i) => i.name.toLowerCase() !== removeName
+      );
+      break;
+    }
+
+    case "set_order_type":
+      order.orderType = args.order_type as "pickup" | "delivery";
+      break;
+
+    case "set_delivery_address":
+      order.deliveryAddress = args.address as string;
+      break;
+
+    case "set_customer_info":
+      if (args.name) order.customerName = args.name as string;
+      if (args.phone) order.customerPhone = args.phone as string;
+      break;
+  }
 }
 
 function findBestMenuItemMatch(
