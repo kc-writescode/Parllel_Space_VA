@@ -35,6 +35,10 @@ export interface Database {
           onboarding_completed: boolean;
           pickup_wait_minutes: number;
           delivery_wait_minutes: number;
+          clover_merchant_id: string | null;
+          clover_access_token: string | null;
+          clover_last_synced_at: string | null;
+          menu_sync_source: string;
           created_at: string;
           updated_at: string;
         };
@@ -60,6 +64,10 @@ export interface Database {
           onboarding_completed?: boolean;
           pickup_wait_minutes?: number;
           delivery_wait_minutes?: number;
+          clover_merchant_id?: string | null;
+          clover_access_token?: string | null;
+          clover_last_synced_at?: string | null;
+          menu_sync_source?: string;
         };
         Update: {
           id?: string;
@@ -83,6 +91,10 @@ export interface Database {
           onboarding_completed?: boolean;
           pickup_wait_minutes?: number;
           delivery_wait_minutes?: number;
+          clover_merchant_id?: string | null;
+          clover_access_token?: string | null;
+          clover_last_synced_at?: string | null;
+          menu_sync_source?: string;
         };
       };
       restaurant_members: {

@@ -13,7 +13,7 @@ import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import { formatPhone } from "@/lib/utils/formatters";
 import { toast } from "sonner";
-import { Phone, Store, Truck, Users, Plus, Trash2, Mail, BarChart2, Activity, TrendingUp, TrendingDown, Clock } from "lucide-react";
+import { Phone, Store, Truck, Users, Plus, Trash2, Mail, BarChart2, Activity, TrendingUp, TrendingDown, Clock, RefreshCw, Unplug, Link2 } from "lucide-react";
 import { startOfMonth, subMonths, format } from "date-fns";
 
 const DAYS = [
@@ -34,6 +34,9 @@ export default function SettingsPage() {
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteRole, setInviteRole] = useState("staff");
   const [inviting, setInviting] = useState(false);
+  const [syncing, setSyncing] = useState(false);
+  const [cloverSyncing, setCloverSyncing] = useState(false);
+  const [cloverConnecting, setCloverConnecting] = useState(false);
 
   const [usage, setUsage] = useState<{
     callsThisMonth: number;
@@ -251,11 +254,167 @@ export default function SettingsPage() {
     }));
   }
 
+  async function handleManualSync() {
+    setSyncing(true);
+    await syncRetellAgent();
+    setSyncing(false);
+  }
+
+  async function connectClover() {
+    if (!restaurant) return;
+    setCloverConnecting(true);
+    try {
+      const res = await fetch("/api/clover/auth-url", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ restaurantId: restaurant.id }),
+      });
+      const data = await res.json();
+      if (data.url) {
+        window.location.href = data.url;
+      } else {
+        toast.error("Failed to get Clover auth URL");
+        setCloverConnecting(false);
+      }
+    } catch {
+      toast.error("Failed to connect Clover");
+      setCloverConnecting(false);
+    }
+  }
+
+  async function syncFromClover() {
+    if (!restaurant) return;
+    setCloverSyncing(true);
+    try {
+      const res = await fetch("/api/clover/sync", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ restaurantId: restaurant.id }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        toast.success(`Synced ${data.items} items in ${data.categories} categories from Clover`);
+      } else {
+        toast.error(data.error || "Clover sync failed");
+      }
+    } catch {
+      toast.error("Clover sync failed");
+    } finally {
+      setCloverSyncing(false);
+    }
+  }
+
+  async function disconnectClover() {
+    if (!restaurant) return;
+    const { error } = await supabase
+      .from("restaurants")
+      .update({
+        clover_merchant_id: null,
+        clover_access_token: null,
+        clover_last_synced_at: null,
+        menu_sync_source: "manual",
+      })
+      .eq("id", restaurant.id);
+    if (error) {
+      toast.error("Failed to disconnect Clover");
+    } else {
+      toast.success("Clover disconnected");
+      window.location.reload();
+    }
+  }
+
   if (!restaurant) return null;
+
+  const cloverConnected = !!restaurant.clover_merchant_id;
 
   return (
     <div className="max-w-2xl space-y-6">
       <h1 className="text-2xl font-bold">Settings</h1>
+
+      {/* Menu & AI Sync */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <RefreshCw className="h-5 w-5" />
+            Menu & AI Sync
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {/* Manual Sync */}
+          <div className="space-y-2">
+            <p className="text-sm font-medium">Manual Sync</p>
+            <p className="text-xs text-gray-500">
+              Push your current menu to the AI agent. Use this after editing menu items.
+            </p>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleManualSync}
+              disabled={syncing || !restaurant.retell_llm_id}
+            >
+              <RefreshCw className={`h-4 w-4 mr-2 ${syncing ? "animate-spin" : ""}`} />
+              {syncing ? "Syncing..." : "Sync Agent Now"}
+            </Button>
+          </div>
+
+          <Separator />
+
+          {/* Clover Integration */}
+          <div className="space-y-3">
+            <p className="text-sm font-medium">Clover POS Integration</p>
+            <p className="text-xs text-gray-500">
+              Connect your Clover account to automatically import your menu and keep it in sync.
+            </p>
+
+            {cloverConnected ? (
+              <div className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <Badge variant="secondary" className="bg-green-100 text-green-700 text-xs">
+                    Connected
+                  </Badge>
+                  <span className="text-xs text-gray-500">
+                    Merchant: {restaurant.clover_merchant_id}
+                  </span>
+                </div>
+                {restaurant.clover_last_synced_at && (
+                  <p className="text-xs text-gray-400">
+                    Last synced: {new Date(restaurant.clover_last_synced_at).toLocaleString()}
+                  </p>
+                )}
+                <div className="flex gap-2">
+                  <Button
+                    size="sm"
+                    onClick={syncFromClover}
+                    disabled={cloverSyncing}
+                  >
+                    <RefreshCw className={`h-4 w-4 mr-2 ${cloverSyncing ? "animate-spin" : ""}`} />
+                    {cloverSyncing ? "Syncing..." : "Sync from Clover"}
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={disconnectClover}
+                    className="text-red-500 hover:text-red-600"
+                  >
+                    <Unplug className="h-4 w-4 mr-1" />
+                    Disconnect
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={connectClover}
+                disabled={cloverConnecting}
+              >
+                <Link2 className="h-4 w-4 mr-2" />
+                {cloverConnecting ? "Redirecting..." : "Connect Clover"}
+              </Button>
+            )}
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Phone Number */}
       {restaurant.retell_phone_number && (
