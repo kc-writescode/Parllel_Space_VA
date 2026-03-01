@@ -6,15 +6,25 @@ export async function POST(req: NextRequest) {
   const body = await req.json();
 
   // Verify webhook signature
-  const apiKey = process.env.RETELL_API_KEY!;
+  const apiKey = process.env.RETELL_API_KEY;
+  if (!apiKey) {
+    console.error("RETELL_API_KEY is not set");
+    return NextResponse.json({ error: "Server misconfigured" }, { status: 500 });
+  }
+
   const signature = req.headers.get("x-retell-signature");
-  if (!Retell.verify(JSON.stringify(body), apiKey, signature || "")) {
+  try {
+    if (!Retell.verify(JSON.stringify(body), apiKey, signature || "")) {
+      return NextResponse.json({ error: "Invalid signature" }, { status: 401 });
+    }
+  } catch (err) {
+    console.error("Signature verification error:", err);
     return NextResponse.json({ error: "Invalid signature" }, { status: 401 });
   }
 
   const supabase = createAdminClient();
   const event = body.event;
-  const callData = body.data;
+  const callData = body.call;
 
   try {
     if (event === "call_started") {
