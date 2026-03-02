@@ -94,6 +94,7 @@ export interface CloverMenuResult {
         name: string;
         sortOrder: number;
         items: {
+            cloverId: string;
             name: string;
             description: string | null;
             price: number; // in dollars
@@ -101,11 +102,12 @@ export interface CloverMenuResult {
             modifierGroups: {
                 name: string;
                 required: boolean;
-                options: { name: string; priceAdjustment: number }[];
+                options: { cloverId: string; name: string; priceAdjustment: number }[];
             }[];
         }[];
     }[];
     uncategorizedItems: {
+        cloverId: string;
         name: string;
         description: string | null;
         price: number;
@@ -113,7 +115,7 @@ export interface CloverMenuResult {
         modifierGroups: {
             name: string;
             required: boolean;
-            options: { name: string; priceAdjustment: number }[];
+            options: { cloverId: string; name: string; priceAdjustment: number }[];
         }[];
     }[];
 }
@@ -166,6 +168,7 @@ export async function fetchCloverMenu(
 
     for (const item of cloverItems) {
         const mappedItem = {
+            cloverId: item.id,
             name: item.name,
             description: item.description || null,
             price: item.price / 100, // cents → dollars
@@ -174,6 +177,7 @@ export async function fetchCloverMenu(
                 name: mg.name,
                 required: (mg.minRequired ?? 0) > 0,
                 options: (mg.modifiers?.elements || []).map((mod) => ({
+                    cloverId: mod.id,
                     name: mod.name,
                     priceAdjustment: (mod.price || 0) / 100, // cents → dollars
                 })),

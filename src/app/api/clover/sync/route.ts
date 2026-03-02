@@ -76,6 +76,7 @@ export async function POST(req: NextRequest) {
                         base_price: item.price,
                         is_available: item.available,
                         sort_order: i,
+                        clover_item_id: item.cloverId || null,
                     })
                     .select("id")
                     .single();
@@ -102,6 +103,7 @@ export async function POST(req: NextRequest) {
                                     name: o.name,
                                     price_adjustment: o.priceAdjustment,
                                     sort_order: idx,
+                                    clover_modifier_id: o.cloverId || null,
                                 }))
                             );
                         }

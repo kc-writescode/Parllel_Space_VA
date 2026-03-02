@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import Retell from "retell-sdk";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { createCloverOrder } from "@/lib/clover/orders";
 
 export async function POST(req: NextRequest) {
   const body = await req.json();
@@ -156,7 +157,7 @@ async function handleCallEnded(
   // Resolve menu items and calculate prices
   const { data: menuItems } = await supabase
     .from("menu_items")
-    .select("id, name, base_price")
+    .select("id, name, base_price, clover_item_id")
     .eq("restaurant_id", call.restaurant_id);
 
   const resolvedItems = order.items.map((item) => {
@@ -170,6 +171,7 @@ async function handleCallEnded(
 
     return {
       menu_item_id: match?.id || null,
+      clover_item_id: match?.clover_item_id || null,
       name: match?.name || item.name,
       quantity: item.quantity,
       unit_price: unitPrice,
@@ -217,6 +219,33 @@ async function handleCallEnded(
     .from("calls")
     .update({ order_id: newOrder.id, customer_id: customerId })
     .eq("id", call.id);
+
+  // Push order to Clover POS if connected (non-blocking)
+  if (restaurant.clover_merchant_id && restaurant.clover_access_token) {
+    try {
+      const cloverOrderId = await createCloverOrder({
+        merchantId: restaurant.clover_merchant_id,
+        accessToken: restaurant.clover_access_token,
+        items: resolvedItems.map((ri) => ({
+          cloverItemId: ri.clover_item_id,
+          name: ri.name,
+          quantity: ri.quantity,
+          unitPrice: ri.unit_price,
+          specialInstructions: ri.special_instructions,
+        })),
+        orderNote: `Order #${newOrder.order_number} — ${order.orderType} — ${order.customerName || "Guest"}`,
+      });
+
+      if (cloverOrderId) {
+        await supabase
+          .from("orders")
+          .update({ clover_order_id: cloverOrderId })
+          .eq("id", newOrder.id);
+      }
+    } catch (cloverErr) {
+      console.error("Clover order push failed (non-blocking):", cloverErr);
+    }
+  }
 
   // Payment is collected at pickup/delivery — no payment link needed
 }
@@ -329,8 +358,8 @@ function processToolCall(
 
 function findBestMenuItemMatch(
   name: string,
-  menuItems: { id: string; name: string; base_price: number }[]
-): { id: string; name: string; base_price: number } | null {
+  menuItems: { id: string; name: string; base_price: number; clover_item_id: string | null }[]
+): { id: string; name: string; base_price: number; clover_item_id: string | null } | null {
   const lower = name.toLowerCase().trim();
 
   // Exact match
