@@ -36,7 +36,9 @@ export default function SettingsPage() {
   const [inviting, setInviting] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [cloverSyncing, setCloverSyncing] = useState(false);
-  const [cloverConnecting, setCloverConnecting] = useState(false);
+  const [cloverSaving, setCloverSaving] = useState(false);
+  const [cloverMerchantId, setCloverMerchantId] = useState("");
+  const [cloverApiToken, setCloverApiToken] = useState("");
 
   const [usage, setUsage] = useState<{
     callsThisMonth: number;
@@ -260,25 +262,32 @@ export default function SettingsPage() {
     setSyncing(false);
   }
 
-  async function connectClover() {
-    if (!restaurant) return;
-    setCloverConnecting(true);
+  async function saveCloverCredentials() {
+    if (!restaurant || !cloverMerchantId.trim() || !cloverApiToken.trim()) {
+      toast.error("Please enter both Merchant ID and API Token");
+      return;
+    }
+    setCloverSaving(true);
     try {
-      const res = await fetch("/api/clover/auth-url", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ restaurantId: restaurant.id }),
-      });
-      const data = await res.json();
-      if (data.url) {
-        window.location.href = data.url;
+      const { error } = await supabase
+        .from("restaurants")
+        .update({
+          clover_merchant_id: cloverMerchantId.trim(),
+          clover_access_token: cloverApiToken.trim(),
+          menu_sync_source: "clover",
+        })
+        .eq("id", restaurant.id);
+
+      if (error) {
+        toast.error("Failed to save Clover credentials");
       } else {
-        toast.error("Failed to get Clover auth URL");
-        setCloverConnecting(false);
+        toast.success("Clover connected! You can now sync your menu.");
+        window.location.reload();
       }
     } catch {
-      toast.error("Failed to connect Clover");
-      setCloverConnecting(false);
+      toast.error("Failed to save Clover credentials");
+    } finally {
+      setCloverSaving(false);
     }
   }
 
@@ -402,15 +411,38 @@ export default function SettingsPage() {
                 </div>
               </div>
             ) : (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={connectClover}
-                disabled={cloverConnecting}
-              >
-                <Link2 className="h-4 w-4 mr-2" />
-                {cloverConnecting ? "Redirecting..." : "Connect Clover"}
-              </Button>
+              <div className="space-y-3">
+                <div className="space-y-2">
+                  <Label htmlFor="clover-merchant-id">Merchant ID</Label>
+                  <Input
+                    id="clover-merchant-id"
+                    placeholder="e.g. ABC123DEF456"
+                    value={cloverMerchantId}
+                    onChange={(e) => setCloverMerchantId(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="clover-api-token">API Token (Access Token)</Label>
+                  <Input
+                    id="clover-api-token"
+                    type="password"
+                    placeholder="Paste your Clover API token"
+                    value={cloverApiToken}
+                    onChange={(e) => setCloverApiToken(e.target.value)}
+                  />
+                </div>
+                <p className="text-xs text-gray-400">
+                  Find these in your Clover Dashboard → Settings → API Tokens, or from your Clover Developer account.
+                </p>
+                <Button
+                  size="sm"
+                  onClick={saveCloverCredentials}
+                  disabled={cloverSaving || !cloverMerchantId.trim() || !cloverApiToken.trim()}
+                >
+                  <Link2 className="h-4 w-4 mr-2" />
+                  {cloverSaving ? "Connecting..." : "Connect Clover"}
+                </Button>
+              </div>
             )}
           </div>
         </CardContent>
