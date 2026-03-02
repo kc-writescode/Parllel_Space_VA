@@ -233,24 +233,20 @@ async function handleCallAnalyzed(
 
 // ── Order extraction from transcript tool calls ──
 
+// Retell transcript_with_tool_calls entry types (from retell-sdk):
+// - Utterance: { role: 'agent' | 'user', content: string, words: [...] }
+// - ToolCallInvocationUtterance: { role: 'tool_call_invocation', name: string, arguments: string, tool_call_id: string }
+// - ToolCallResultUtterance: { role: 'tool_call_result', content: string, tool_call_id: string }
+// - DtmfUtterance: { role: 'dtmf', digit: string }
 interface TranscriptEntry {
   role: string;
-  content: string;
-  // Retell uses "tool_call_invocation" entries with this structure
-  tool_call_invocation?: {
-    tool_call_id: string;
-    name: string;
-    arguments: string; // JSON string
-  };
-  // Also handle array format for tool_calls
-  tool_calls?: {
-    function_name?: string;
-    arguments?: Record<string, unknown>;
-    function?: {
-      name: string;
-      arguments: string;
-    };
-  }[];
+  content?: string;
+  // Present when role === 'tool_call_invocation'
+  name?: string;
+  arguments?: string; // JSON string
+  tool_call_id?: string;
+  // Present when role === 'dtmf'
+  digit?: string;
 }
 
 interface ExtractedOrder {
@@ -277,33 +273,14 @@ function extractOrderFromTranscript(
   };
 
   for (const entry of transcript) {
-    // Handle Retell's tool_call_invocation format (individual entries)
-    if (entry.tool_call_invocation) {
-      const inv = entry.tool_call_invocation;
+    // Retell marks tool call entries with role === 'tool_call_invocation'
+    // and puts name + arguments at the top level of the entry
+    if (entry.role === "tool_call_invocation" && entry.name) {
       let args: Record<string, unknown> = {};
       try {
-        args = typeof inv.arguments === "string" ? JSON.parse(inv.arguments) : inv.arguments;
+        args = JSON.parse(entry.arguments || "{}");
       } catch { /* ignore parse errors */ }
-      processToolCall(inv.name, args, order);
-      continue;
-    }
-
-    // Handle tool_calls array format
-    if (!entry.tool_calls) continue;
-    for (const toolCall of entry.tool_calls) {
-      // Support both flat and nested formats
-      const funcName = toolCall.function_name || toolCall.function?.name || "";
-      let args: Record<string, unknown> = {};
-      if (toolCall.arguments && typeof toolCall.arguments === "object") {
-        args = toolCall.arguments;
-      } else if (toolCall.function?.arguments) {
-        try {
-          args = typeof toolCall.function.arguments === "string"
-            ? JSON.parse(toolCall.function.arguments)
-            : toolCall.function.arguments;
-        } catch { /* ignore parse errors */ }
-      }
-      processToolCall(funcName, args, order);
+      processToolCall(entry.name, args, order);
     }
   }
 
